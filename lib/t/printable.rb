@@ -5,7 +5,19 @@ module T
     USER_HEADINGS = ['ID', 'Since', 'Last tweeted at', 'Tweets', 'Favorites', 'Listed', 'Following', 'Followers', 'Screen name', 'Name', 'Verified', 'Protected', 'Bio', 'Status', 'Location', 'URL']
     MONTH_IN_SECONDS = 2_592_000
 
-  private
+    COLORS = (31..37).to_a + (91..96).to_a
+    COLOR = {
+      :info => 90,
+      :notice => 31,
+      :event => 42,
+      :url => [4, 36]
+    }
+
+    private
+
+    def color_of(username)
+      COLORS[username.delete("^0-9A-Za-z_").to_i(36) % COLORS.size]
+    end
 
     def build_long_list(list)
       [list.id, ls_formatted_time(list), "@#{list.user.screen_name}", list.slug, list.member_count, list.subscriber_count, list.mode, list.description]
@@ -111,15 +123,23 @@ module T
     end
 
     def print_message(from_user, message)
+      require 't/core_ext/string'
+      require 'htmlentities'
+      from_user = "@" + from_user
       case options['color']
       when 'auto'
-        say("   @#{from_user}", [:bold, :yellow])
+        #say("@#{from_user}", [:bold, :yellow])
+        #say("#{from_user}", [:bold])
+        from_user = from_user.coloring(/@[0-9A-Za-z_]+/) { |i| color_of(i) }
+        message = message.coloring(/@[0-9A-Za-z_]+/) { |i| color_of(i) }
+        message = message.coloring(/(^#[^\s]+)|(\s+#[^\s]+)/) { |i| color_of(i) }
+        message = message.coloring(URI.regexp(["http", "https"]), :url)
       else
-        say("   @#{from_user}")
+        #say("#{from_user}")
       end
-      require 'htmlentities'
-      print_wrapped(HTMLEntities.new.decode(message), :indent => 3)
-      say
+      message = "#{from_user}: " + message
+      print_wrapped(HTMLEntities.new.decode(message), :indent => 2)
+      #say
     end
 
     def print_tweets(tweets)
